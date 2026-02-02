@@ -1,0 +1,61 @@
+name: Build and Attest
+
+on:
+  push:
+    branches: [ main, copilot/* ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+  attestations: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: '1.21'
+
+    - name: Build binary
+      run: |
+        go build -o secure-supply-chain-demo main.go
+        ls -lh secure-supply-chain-demo
+
+    - name: Generate SBOM
+      uses: anchore/sbom-action@v0
+      with:
+        artifact-name: sbom.spdx.json
+        output-file: sbom.spdx.json
+        format: spdx-json
+
+    - name: Attest SBOM
+      uses: actions/attest-sbom@v1
+      with:
+        subject-path: secure-supply-chain-demo
+        sbom-path: sbom.spdx.json
+
+    - name: Attest Build Provenance
+      uses: actions/attest-build-provenance@v1
+      with:
+        subject-path: secure-supply-chain-demo
+
+    - name: Upload binary as artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: secure-supply-chain-demo
+        path: secure-supply-chain-demo
+
+    - name: Upload SBOM as artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: sbom
+        path: sbom.spdx.json
